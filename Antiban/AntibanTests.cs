@@ -32,8 +32,8 @@ namespace Antiban
             Assert.True(results[1].EventMessageId == 2 && results[1].SentDateTime == new DateTime(year, month, day, 12, 1, 0));
             Assert.True(results[2].EventMessageId == 3 && results[2].SentDateTime == new DateTime(year, month, day, 12, 1, 25));
             Assert.True(results[3].EventMessageId == 4 && results[3].SentDateTime == new DateTime(year, month, day, 12, 2, 0));
-            Assert.True(results[4].EventMessageId == 6 && results[4].SentDateTime == new DateTime(year, month, day, 12, 2, 10));
-            Assert.True(results[5].EventMessageId == 7 && results[5].SentDateTime == new DateTime(year, month, day, 12, 2, 25));
+            Assert.True(results[4].EventMessageId == 7 && results[4].SentDateTime == new DateTime(year, month, day, 12, 2, 25));
+            Assert.True(results[5].EventMessageId == 6 && results[5].SentDateTime == new DateTime(year, month, day, 12, 3, 0));
             Assert.True(results[6].EventMessageId == 5 && results[6].SentDateTime == new DateTime(year, month, day + 1, 12, 1, 50));
 
         }
@@ -74,8 +74,8 @@ namespace Antiban
             Assert.True(results[1].EventMessageId == 2 && results[1].SentDateTime == new DateTime(year, month, day, 12, 1, 0));
             Assert.True(results[2].EventMessageId == 3 && results[2].SentDateTime == new DateTime(year, month, day, 12, 1, 25));
             Assert.True(results[3].EventMessageId == 4 && results[3].SentDateTime == new DateTime(year, month, day, 12, 2, 0));
-            Assert.True(results[4].EventMessageId == 6 && results[4].SentDateTime == new DateTime(year, month, day, 12, 2, 10));
-            Assert.True(results[5].EventMessageId == 7 && results[5].SentDateTime == new DateTime(year, month, day, 12, 2, 25));
+            Assert.True(results[4].EventMessageId == 7 && results[4].SentDateTime == new DateTime(year, month, day, 12, 2, 25));
+            Assert.True(results[5].EventMessageId == 6 && results[5].SentDateTime == new DateTime(year, month, day, 12, 3, 0));
             Assert.True(results[6].EventMessageId == 5 && results[6].SentDateTime == new DateTime(year, month, day + 1, 12, 1, 50));
         }
     }
