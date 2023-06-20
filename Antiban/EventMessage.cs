@@ -2,7 +2,7 @@
 
 namespace Antiban
 {
-    public  class EventMessage
+    public class EventMessage
     {
         public int Id { get; set; }
         /// <summary>
@@ -12,7 +12,7 @@ namespace Antiban
         /// <summary>
         /// Время возникновения события
         /// </summary>
-        public DateTime DateTime { get; set; }
+        public DateTime EventDateTime { get; set; }
         /// <summary>
         /// Приоритет сообщения
         /// 0 - сервисные
@@ -26,17 +26,16 @@ namespace Antiban
         /// <summary>
         /// Срок жизни сообщения
         /// </summary>
-        public DateTime ExpireDateTime { get; set; }
+        public DateTime ExpireDateTime => Priority == 0 ? EventDateTime.AddHours(1) : EventDateTime.AddDays(1);
 
-        public EventMessage(int id, string phone, DateTime dateTime, 
+        public EventMessage(int id, string phone, DateTime dateTime,
             int priority)
         {
             Id = id;
             Phone = phone;
-            DateTime = dateTime;
+            EventDateTime = dateTime;
             Priority = priority;
             Text = "Something";
-            ExpireDateTime = priority == 0 ? dateTime.AddHours(1) : dateTime.AddDays(1);
         }
     }
 }
