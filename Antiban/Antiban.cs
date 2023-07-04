@@ -1,11 +1,13 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Antiban
 {
     public class Antiban
     {
-        private readonly LinkedList<EventMessage> _events = new();
+        private const int MailingPriority = 1;
+        private readonly LinkedList<EventMessage> _queue = new();
 
         /// <summary>
         /// Добавление сообщений в систему, для обработки порядка сообщений
@@ -13,93 +15,90 @@ namespace Antiban
         /// <param name="eventMessage"></param>
         public void PushEventMessage(EventMessage eventMessage)
         {
-            var node = _events.AddLast(eventMessage);
+            var node = _queue.AddLast(eventMessage);
             bool queueHasChanges;
 
-            do
-            {
-                queueHasChanges = FixEventOrder(ref node);
-                queueHasChanges = FixEventInQueue(node.Value) || queueHasChanges;
-            } while (queueHasChanges);
+            do queueHasChanges = FixEventOrder(ref node) || FixEventInQueue(node.Value);
+            while (queueHasChanges);
         }
 
         /// <summary>
-        /// Finds correct position in the queue for <param name="node" />
+        /// Переставляет <param name="node" /> на корректную позицию
         /// </summary>
-        /// <returns>True if queue has changes</returns>
+        /// <returns>Истина, если были внесены изменения в очередь</returns>
         private bool FixEventOrder(ref LinkedListNode<EventMessage> node)
         {
-            bool queueHasChanged = true;
-            var initialPrevious = node.Previous;
+            var initialPreviousId = node.Previous?.Value.Id;
 
-            _events.Remove(node);
-            var currentPrevious = _events.Last;
+            _queue.Remove(node);
+            var currentPrevious = _queue.Last;
 
             while (currentPrevious != null && currentPrevious.Value.ExpireDateTime > node.Value.ExpireDateTime)
             {
                 currentPrevious = currentPrevious.Previous;
             }
 
-            if (initialPrevious?.Value.Id == currentPrevious?.Value.Id)
-            {
-                queueHasChanged = false;
-            }
+            node = currentPrevious != null
+                ? _queue.AddAfter(currentPrevious, node.Value)
+                : _queue.AddFirst(node.Value);
 
-            node = currentPrevious != null 
-                ? _events.AddAfter(currentPrevious, node.Value) 
-                : _events.AddFirst(node.Value);
-
-            return queueHasChanged;
+            return initialPreviousId != currentPrevious?.Value.Id;
         }
 
         /// <summary>
-        /// Sets correct ExpireDateTime, following the anti-ban rules.
-        /// Use only with sorted queue
+        /// Устанавливает корректный ExpireDateTime, следуя антибан правилам.
+        /// Использовать только после сортировки очереди.
         /// </summary>
-        /// <returns>True if queue has changes</returns>
-        private bool FixEventInQueue(EventMessage message)
-        {
-            // last same phone and priority=1 + 24h
-            if (message.Priority == 1)
+        /// <returns>Истина, если были внесены изменения в очередь</returns>
+        private bool FixEventInQueue(EventMessage message) 
+            => message.Priority switch
             {
-                var lastSamePhoneAndFirstPriority = _events.LastOrDefault(x =>
-                    x.ExpireDateTime <= message.ExpireDateTime
-                    && x.Id != message.Id
-                    && x.Phone == message.Phone
-                    && x.Priority == 1);
+                // Период между сообщениями с приоритетом=1 на один номер, не менее 24 часа.
+                MailingPriority when CheckRule(message,
+                    x => x.Phone == message.Phone && x.Priority == 1,
+                    TimeSpan.FromDays(1)) => true,
 
-                if (lastSamePhoneAndFirstPriority is not null 
-                    && (message.ExpireDateTime - lastSamePhoneAndFirstPriority.ExpireDateTime).TotalDays < 1)
-                {
-                    message.ExpireDateTime = lastSamePhoneAndFirstPriority.ExpireDateTime.AddDays(1);
-                    return true;
-                }
-            }
+                // Период между сообщениями на один номер, должен быть не менее 1 минуты.
+                _ when CheckRule(message,
+                    x => x.Phone == message.Phone,
+                    TimeSpan.FromMinutes(1)) => true,
 
-            // last same phone + 1min
-            var lastSamePhone = _events.LastOrDefault(x =>
+                // Период между сообщениями на разные номера, должен быть не менее 10 сек.
+                _ when CheckRule(message, TimeSpan.FromSeconds(10)) => true,
+
+                _ => false
+            };
+
+        /// <summary>
+        /// Проверяет соблюдения правил антибан системы
+        /// </summary>
+        /// <param name="message">Текущее сообщение</param>
+        /// <param name="periodBetweenMessages">Период между сообщениями</param>
+        /// <returns>Истина, если правило соблюдается</returns>
+        private bool CheckRule(EventMessage message, TimeSpan periodBetweenMessages) 
+            => CheckRule(message, _ => true, periodBetweenMessages);
+
+        /// <summary>
+        /// Проверяет соблюдения правила
+        /// </summary>
+        /// <param name="message">Текущее сообщение</param>
+        /// <param name="lastMessagePredicate">Предикат для поиска ближайшего по дате eventMessage-a</param>
+        /// <param name="periodBetweenMessages">Период между сообщениями</param>
+        /// <returns>Истина, если правило соблюдается</returns>
+        private bool CheckRule(EventMessage message, Predicate<EventMessage> lastMessagePredicate,
+            TimeSpan periodBetweenMessages)
+        {
+            var last = _queue.LastOrDefault(x =>
                 x.ExpireDateTime <= message.ExpireDateTime
                 && x.Id != message.Id
-                && x.Phone == message.Phone);
-            
-            if (lastSamePhone is not null 
-                && (message.ExpireDateTime - lastSamePhone.ExpireDateTime).TotalMinutes < 1)
+                && lastMessagePredicate(x));
+
+            if (last is not null && message.ExpireDateTime - last.ExpireDateTime < periodBetweenMessages)
             {
-                message.ExpireDateTime = lastSamePhone.ExpireDateTime.AddMinutes(1);
+                message.ExpireDateTime = last.ExpireDateTime.Add(periodBetweenMessages);
                 return true;
             }
 
-            // last + 10sec
-            var last = _events.LastOrDefault(x => 
-                x.ExpireDateTime <= message.ExpireDateTime
-                && x.Id != message.Id);
-            
-            if (last is not null && (message.ExpireDateTime - last.ExpireDateTime).TotalSeconds < 10)
-            {
-                message.ExpireDateTime = last.ExpireDateTime.AddSeconds(10);
-                return true;
-            }
-            
             return false;
         }
 
@@ -107,15 +106,13 @@ namespace Antiban
         /// Вовзращает порядок отправок сообщений
         /// </summary>
         /// <returns></returns>
-        public List<AntibanResult> GetResult()
-        {
-            return _events
+        public List<AntibanResult> GetResult() 
+            => _queue
                 .Select(x => new AntibanResult
                 {
                     EventMessageId = x.Id,
                     SentDateTime = x.ExpireDateTime
                 })
                 .ToList();
-        }
     }
 }
