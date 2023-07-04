@@ -36,7 +36,7 @@ namespace Antiban
             DateTime = dateTime;
             Priority = priority;
             Text = "Something";
-            ExpireDateTime = priority == 0 ? dateTime.AddHours(1) : dateTime.AddDays(1);
+            ExpireDateTime = dateTime;
         }
     }
 }
